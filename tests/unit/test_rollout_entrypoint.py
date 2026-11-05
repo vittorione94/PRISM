@@ -38,6 +38,13 @@ def test_full_coverage_and_native_rollout_environment(tmp_path, monkeypatch):
     assert not (tmp_path / "output").exists()
 
 
+def test_physics_buffers_scale_with_clip_count_and_keep_release_recipe():
+    values = lambda envs: [int(arg.rsplit("=", 1)[1]) for arg in _rollout.physics_buffers(envs)]
+    assert values(2048) == [335544320, 469762048, 83886080]
+    assert values(129) == [22020096, 2**25, 6291456]
+    assert values(1) == [2**21, 2**25, 2**21]
+
+
 def test_missing_clip_cannot_be_silently_filtered(tmp_path):
     bank, argv = inputs(tmp_path)
     (bank / "b.npz").unlink()

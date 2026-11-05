@@ -52,6 +52,7 @@ bash rollout.sh --motion-bank /path/to/teacher_bank
 
 Rollouts use the released teacher and write to `outputs/rollout/`.
 Pass `--output` for subsequent collections; existing outputs are never overwritten.
+Rollout runs one environment per clip and scales PhysX pair capacities to match.
 
 ## Student
 

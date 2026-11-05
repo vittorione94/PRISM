@@ -13,6 +13,16 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def physics_buffers(environments):
+    """PhysX preallocates pair capacity: scale the 2,048-env recipe to one env per clip."""
+    block = 2**20
+    return [f"--simulator.config.sim.physx.gpu-{name}="
+            f"{max(floor, (reference * environments + 2048 * block - 1) // (2048 * block) * block)}"
+            for name, reference, floor in (("found-lost-pairs-capacity", 335544320, 2**21),
+                                           ("found-lost-aggregate-pairs-capacity", 469762048, 2**25),
+                                           ("total-aggregate-pairs-capacity", 83886080, 2**21))]
+
+
 def prepare(argv=None):
     parser = argparse.ArgumentParser(
         prog="rollout.sh",
@@ -90,7 +100,7 @@ def prepare(argv=None):
            "randomization:disabled", "logger:disabled",
            f"--training.num-envs={len(clips)}", "--training.headless=True", "--training.seed=42",
            "--simulator.config.sim.max-episode-length-s=1000000",
-           "--simulator.config.sim.physx.gpu-collision-stack-size=268435456",
+           "--simulator.config.sim.physx.gpu-collision-stack-size=268435456", *physics_buffers(len(clips)),
            "--robot.object.enabled=True", f"--robot.object.object-urdf-path={object_map}",
            motion + f"motion-file={bank}", motion + "use-adaptive-timesteps-sampler=False",
            motion + "start-at-timestep-zero-prob=1.0", motion + "freeze-at-timestep-zero-prob=0.0",
