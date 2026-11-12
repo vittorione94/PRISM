@@ -23,7 +23,7 @@ def test_teacher_launch_uses_installed_module(monkeypatch):
     _, _, _, env, command = prepare("teacher", [], {}, 4, [
         "--motion-bank", "/external/motions", "--entity", "test", "--check",
     ])
-    assert command[-2:] == ["--module", "holosoma.train_agent_rank_visible"]
+    assert command[-2:] == ["--module", "scripts._rank_visible_entry"]
     assert env["PYTHONPATH"] == str(Path(__file__).resolve().parents[2])
     assert not (Path(env["PYTHONPATH"]) / "src").exists()
 

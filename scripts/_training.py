@@ -200,7 +200,7 @@ def prepare(role, cli_template, environment, nodes, argv=None):
     else:
         command += [f"--node_rank={args.node_rank}", f"--master_addr={env['MASTER_ADDR']}",
                     f"--master_port={args.master_port}"]
-    command += ["--module", "holosoma.train_agent_rank_visible", *cli]
+    command += ["--module", "scripts._rank_visible_entry", *cli]
     return args, bindings, cli, env, command
 
 
