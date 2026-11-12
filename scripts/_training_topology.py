@@ -75,3 +75,29 @@ def fit_environments(motion_bank: Path, world_size: int, budget: int) -> int:
 def shard_directory(parent: Path, world_size: int, environments: int) -> Path:
     suffix = "" if environments == 2048 else f"_e{environments}"
     return parent / f"student_shards_ws{world_size}{suffix}"
+
+
+# Release PhysX capacities (sized for 2,048 environments per GPU) and Isaac Lab's
+# PhysxCfg defaults as floors.
+PHYSX_BUFFERS = {
+    "gpu-found-lost-pairs-capacity": (335544320, 2**21),
+    "gpu-found-lost-aggregate-pairs-capacity": (469762048, 2**25),
+    "gpu-total-aggregate-pairs-capacity": (83886080, 2**21),
+    "gpu-collision-stack-size": (268435456, 2**26),
+}
+
+
+def physics_buffers(environments: int) -> dict[str, int]:
+    """Scale PhysX capacities with the per-GPU environment count (opt-in).
+
+    Rounds up to whole 1 MiB/count blocks and never exceeds the release values,
+    which stay exact at 2,048 environments per GPU.
+    """
+    if environments < 1:
+        raise ValueError("Environment count must be positive")
+    quantum = 2**20
+    scaled = {}
+    for key, (reference, floor) in PHYSX_BUFFERS.items():
+        value = -(-reference * environments // (2048 * quantum)) * quantum
+        scaled[key] = min(reference, max(floor, value))
+    return scaled

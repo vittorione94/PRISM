@@ -116,3 +116,14 @@ def test_cache_paths_follow_output_and_isolate_concurrent_runs(tmp_path, monkeyp
     assert environments[0]["HOLOSOMA_ROBOT_USD_CACHE_DIR"] != environments[1]["HOLOSOMA_ROBOT_USD_CACHE_DIR"]
     assert environments[0]["HOLOSOMA_PERCEPTION_MESH_CACHE_DIR"] == environments[1]["HOLOSOMA_PERCEPTION_MESH_CACHE_DIR"]
     assert not shared.exists()
+
+
+def test_physics_buffers_keep_release_values_at_2048_and_scale_down():
+    from scripts._training_topology import PHYSX_BUFFERS, physics_buffers
+
+    assert physics_buffers(2048) == {key: reference for key, (reference, _) in PHYSX_BUFFERS.items()}
+    assert physics_buffers(4096) == physics_buffers(2048)
+    half = physics_buffers(1024)
+    assert half["gpu-found-lost-pairs-capacity"] == 335544320 // 2
+    assert all(value % 2**20 == 0 for value in half.values())
+    assert all(value >= PHYSX_BUFFERS[key][1] for key, value in physics_buffers(1).items())

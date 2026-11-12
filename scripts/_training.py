@@ -84,6 +84,9 @@ def prepare(role, cli_template, environment, nodes, argv=None):
                         help="Use an existing runtime checkout (default: fetch automatically)")
     parser.add_argument("--runtime-commit", help="Require a specific installed runtime commit")
     parser.add_argument("--runtime-ref", help="Override the runtime ref in requirements.txt")
+    parser.add_argument("--scale-physx-buffers", action="store_true",
+                        help="Scale PhysX GPU buffer capacities with --envs-per-gpu for GPUs under 48 GB "
+                             "(default: fixed release capacities)")
     parser.add_argument("--check", action="store_true",
                         help="Parse and print the training command on CPU, without starting training")
     args = parser.parse_args(argv)
@@ -150,6 +153,15 @@ def prepare(role, cli_template, environment, nodes, argv=None):
         for key in ("contact_bank", "robot_assets", "teacher_checkpoint", "initializer_checkpoint"):
             bindings[key.upper()] = str(getattr(args, key).expanduser().resolve())
     cli = [Template(value).substitute(bindings) for value in cli_template]
+    if args.scale_physx_buffers:
+        from scripts._training_topology import physics_buffers
+        buffers = physics_buffers(environments)
+        prefix = "--simulator.config.sim.physx."
+        cli = [f"{prefix}{key}={buffers[key]}"
+               if value.startswith(prefix) and (key := value[len(prefix):].split("=", 1)[0]) in buffers
+               else value for value in cli]
+        print("Scaled PhysX buffers for {} environments per GPU: {}".format(
+            environments, ", ".join(f"{key}={value}" for key, value in buffers.items())), flush=True)
     # Do not inherit semantic switches or an existing training/logging identity.
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("HOLOSOMA_", "WANDB_")) and key not in {
