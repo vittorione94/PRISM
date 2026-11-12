@@ -65,7 +65,10 @@ def prepare(role, cli_template, environment, nodes, argv=None):
                             help="Distillation teacher (default: _ckpts/teacher_40000.pt)")
         parser.add_argument("--initializer-checkpoint", type=Path, default=ROOT / "_ckpts" / "box_23000.pt",
                             help="Actor initialization checkpoint (default: _ckpts/box_23000.pt)")
-    parser.add_argument("--entity", default=os.environ.get("WANDB_ENTITY"), required=not os.environ.get("WANDB_ENTITY"))
+    parser.add_argument("--no-wandb", action="store_true",
+                        help="Disable W&B; log to TensorBoard only (event files under OUTPUT)")
+    parser.add_argument("--entity", default=os.environ.get("WANDB_ENTITY"),
+                        help="W&B user or team (required unless --no-wandb or WANDB_ENTITY is set)")
     parser.add_argument("--project", default="carry")
     parser.add_argument("--name", default=role)
     parser.add_argument("--output", type=Path, default=ROOT / "outputs" / role)
@@ -84,6 +87,16 @@ def prepare(role, cli_template, environment, nodes, argv=None):
     parser.add_argument("--check", action="store_true",
                         help="Parse and print the training command on CPU, without starting training")
     args = parser.parse_args(argv)
+    if not args.no_wandb and not args.entity:
+        parser.error("--entity is required unless --no-wandb is given")
+    if args.no_wandb:
+        # The disabled logger has no W&B fields; TensorBoard is always written.
+        wandb_only = ("--logger.entity=", "--logger.name=", "--logger.mode=",
+                      "--logger.resume=", "--logger.video.upload-to-wandb=")
+        cli_template = ["logger:disabled" if value == "logger:wandb" else value
+                        for value in cli_template if not value.startswith(wandb_only)]
+        environment = {key: value for key, value in environment.items() if not key.startswith("WANDB_")}
+        environment.update({"HOLOSOMA_REQUIRE_WANDB_RUN": "0", "WANDB_MODE": "disabled"})
     downloaded_bank = False
     if role == "distillation":
         default_bank = STUDENT_DATA / "motion_bank"
@@ -127,7 +140,7 @@ def prepare(role, cli_template, environment, nodes, argv=None):
     bindings = {
         "MOTION_BANK": str(args.motion_bank.expanduser().resolve()),
         "TEACHER_MOTION_BANK": str(args.motion_bank.expanduser().resolve()),
-        "WANDB_ENTITY": args.entity, "WANDB_PROJECT": args.project,
+        "WANDB_ENTITY": args.entity or "", "WANDB_PROJECT": args.project,
         "RUN_NAME": args.name, "LOG_DIR": str(args.output.expanduser().resolve()),
         "NODES": str(nodes), "NPROC": str(len(devices)), "WORLD_SIZE": str(world_size),
         "TOTAL_ENVS": str(world_size * environments), "MULTIGPU": str(world_size > 1),
