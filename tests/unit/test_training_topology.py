@@ -127,3 +127,15 @@ def test_physics_buffers_keep_release_values_at_2048_and_scale_down():
     assert half["gpu-found-lost-pairs-capacity"] == 335544320 // 2
     assert all(value % 2**20 == 0 for value in half.values())
     assert all(value >= PHYSX_BUFFERS[key][1] for key, value in physics_buffers(1).items())
+
+
+def test_physics_buffer_scale_reduces_capacity_with_floors():
+    import pytest
+    from scripts._training_topology import PHYSX_BUFFERS, physics_buffers
+
+    quarter = physics_buffers(2048, 0.25)
+    assert quarter["gpu-found-lost-pairs-capacity"] == 335544320 // 4
+    assert quarter["gpu-collision-stack-size"] == 2**26  # Isaac Lab floor
+    assert physics_buffers(2048, 1.0) == {key: ref for key, (ref, _) in PHYSX_BUFFERS.items()}
+    with pytest.raises(ValueError):
+        physics_buffers(2048, 0)

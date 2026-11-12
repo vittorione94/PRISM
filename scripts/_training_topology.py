@@ -87,17 +87,20 @@ PHYSX_BUFFERS = {
 }
 
 
-def physics_buffers(environments: int) -> dict[str, int]:
+def physics_buffers(environments: int, scale: float = 1.0) -> dict[str, int]:
     """Scale PhysX capacities with the per-GPU environment count (opt-in).
 
-    Rounds up to whole 1 MiB/count blocks and never exceeds the release values,
-    which stay exact at 2,048 environments per GPU.
+    ``scale`` further multiplies the per-environment capacity. Values round up
+    to whole 1 MiB/count blocks, never drop below Isaac Lab's defaults and never
+    exceed the release values, which stay exact at 2,048 environments and 1.0.
     """
     if environments < 1:
         raise ValueError("Environment count must be positive")
+    if not 0 < scale <= 1:
+        raise ValueError("PhysX buffer scale must be in (0, 1]")
     quantum = 2**20
     scaled = {}
     for key, (reference, floor) in PHYSX_BUFFERS.items():
-        value = -(-reference * environments // (2048 * quantum)) * quantum
+        value = -(-int(reference * scale) * environments // (2048 * quantum)) * quantum
         scaled[key] = min(reference, max(floor, value))
     return scaled

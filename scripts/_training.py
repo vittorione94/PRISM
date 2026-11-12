@@ -87,6 +87,9 @@ def prepare(role, cli_template, environment, nodes, argv=None):
     parser.add_argument("--scale-physx-buffers", action="store_true",
                         help="Scale PhysX GPU buffer capacities with --envs-per-gpu for GPUs under 48 GB "
                              "(default: fixed release capacities)")
+    parser.add_argument("--physx-buffer-scale", type=float, default=None,
+                        help="Further multiply the scaled per-environment PhysX capacities, in (0, 1]; "
+                             "implies --scale-physx-buffers. PhysX logs the size it needs if one overflows.")
     parser.add_argument("--check", action="store_true",
                         help="Parse and print the training command on CPU, without starting training")
     args = parser.parse_args(argv)
@@ -153,9 +156,11 @@ def prepare(role, cli_template, environment, nodes, argv=None):
         for key in ("contact_bank", "robot_assets", "teacher_checkpoint", "initializer_checkpoint"):
             bindings[key.upper()] = str(getattr(args, key).expanduser().resolve())
     cli = [Template(value).substitute(bindings) for value in cli_template]
-    if args.scale_physx_buffers:
+    if args.physx_buffer_scale is not None and not 0 < args.physx_buffer_scale <= 1:
+        parser.error("--physx-buffer-scale must be in (0, 1]")
+    if args.scale_physx_buffers or args.physx_buffer_scale is not None:
         from scripts._training_topology import physics_buffers
-        buffers = physics_buffers(environments)
+        buffers = physics_buffers(environments, args.physx_buffer_scale or 1.0)
         prefix = "--simulator.config.sim.physx."
         cli = [f"{prefix}{key}={buffers[key]}"
                if value.startswith(prefix) and (key := value[len(prefix):].split("=", 1)[0]) in buffers
